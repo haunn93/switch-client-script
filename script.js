@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer');
+const fs = require('fs');
+
 require('dotenv').config();
 
 function sleep(ms) {
@@ -63,14 +65,23 @@ async function selectClient(page, clientListSelector, currentClient = '') {
 }
 
 async function selectRandomClientAndSwitch(page) {
-  await page.click('.jss39');
-  await page.click(
-    '#fade-menu > div.MuiPaper-root.MuiMenu-paper.MuiPopover-paper.MuiPaper-elevation8.MuiPaper-rounded > ul > li:nth-child(5)'
+  const headerChildCount = await page.$eval(
+    '#root > div.MuiGrid-root.MuiGrid-container > div:nth-child(1) > div > header > div',
+    (header) => header.childElementCount
   );
-
+  const buttonMenuSelector = `#root > div.MuiGrid-root.MuiGrid-container > div:nth-child(1) > div > header > div > div:nth-child(${headerChildCount}) > button`;
+  await page.$eval(buttonMenuSelector, (el) => el.click());
+  const switchButtonSelector =
+    '#fade-menu > div.MuiPaper-root.MuiMenu-paper.MuiPopover-paper.MuiPaper-elevation8.MuiPaper-rounded > ul > li:nth-child(5)';
+  await page.$eval(switchButtonSelector, (el) => el.click());
   const childCount = await page.$eval('body', (body) => body.childElementCount);
   const clientListSelector = `body > div:nth-child(${childCount}) > div:nth-child(3) > div > div:nth-child(5)`;
-  const currentClient = await page.$eval('.jss36', (element) => element.textContent);
+  const currentClientNameSelector =
+    '#root > div.MuiGrid-root.MuiGrid-container > div:nth-child(1) > div > header > div > div > button > span.MuiButton-label > div:nth-child(2) > div:nth-child(2)';
+  const currentClient = await page.$eval(
+    currentClientNameSelector,
+    (element) => element.textContent
+  );
 
   await selectClient(page, clientListSelector, currentClient);
 }
@@ -87,14 +98,19 @@ async function loginAndGetValue(username, password, loginUrl, loopValue = 1) {
     await page.goto(loginUrl);
     console.log('------------- Login --------------');
     await login(page, username, password);
-
-    // Check for successful login (optional, replace with actual check)
-    await page.waitForSelector('#root > div.jss1.jss2 > div > p', { timeout: 10000 });
-    const loginSuccess = await page.$('#root > div.jss1.jss2 > div > p');
-    if (!loginSuccess) {
-      throw new Error('Login failed');
-    }
     console.log('------------- Login Success --------------');
+    // Check for successful login (optional, replace with actual check)
+    console.log('------------- Checking multiple Client --------------');
+    try {
+      await page.waitForSelector('#root > div.jss1.jss2 > div > p', { timeout: 10000 });
+      const loginSuccess = await page.$('#root > div.jss1.jss2 > div > p');
+      if (!loginSuccess) {
+        throw new Error('Login failed');
+      }
+    } catch (error) {
+      throw new Error('This account does not have multiple access clients.');
+    }
+
     console.log('Getting client list...');
 
     const clientListSelector = '#root > div > div > div:nth-child(4)';
@@ -105,7 +121,9 @@ async function loginAndGetValue(username, password, loginUrl, loopValue = 1) {
       console.log(`------------ Loop: ${i + 1} ------------`);
       await selectRandomClientAndSwitch(page);
     }
-    console.log(`------------- Test successful with ${loopValue} times --------------`);
+    console.log(
+      `------------- Test successful with ${username} in ${loopValue} times --------------`
+    );
   } catch (error) {
     console.error('Error:', error);
     if (error.message.includes('timeout')) {
@@ -115,12 +133,27 @@ async function loginAndGetValue(username, password, loginUrl, loopValue = 1) {
       console.error('- Login failure, check your credentials and the login success condition.');
     }
   } finally {
-    await sleep(10000); // Wait for 10 seconds
     await browser.close();
   }
 }
-const number = process.argv[2];
-const userName = process.env.USER_NAME;
-const password = process.env.PASSWORD;
-console.log(`🚀 ~ Run script ${number} times`);
-loginAndGetValue(userName, password, 'https://app.dev.compscience.com/', number);
+
+const main = async () => {
+  const data = fs.readFileSync('account.txt', 'utf8');
+  const lines = data.split('\n');
+  const accounts = lines.map((line) => {
+    const [username, password] = line.split('|');
+    return { username, password };
+  });
+  const number = process.argv[2];
+  console.log(`🚀 ~ Run script switch client ${number} times for each account`);
+  for (const account of accounts) {
+    await loginAndGetValue(
+      account.username,
+      account.password,
+      'https://app.dev.compscience.com/',
+      number
+    );
+  }
+};
+
+main();
