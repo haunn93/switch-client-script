@@ -1,10 +1,11 @@
+
 # switch-client-script
 
-this repo contain puppeteer script for switch client in specific time
+this repo uses puppeteer for auto-switching clients at a specific time
 
-1. create .env file then input USER_NAME, PASSWORD to that env file
-2. npm install
-3. run cli with loop value
+1. create the account.txt file then input the account with the format `account|password` if you have multiple accounts, you should input in a separate line. 
+3. npm install
+4. run cli with loop value
 
 ```sh
   npm start <loop>
