@@ -103,10 +103,6 @@ async function loginAndGetValue(username, password, loginUrl, loopValue = 1) {
     console.log('------------- Checking multiple Client --------------');
     try {
       await page.waitForSelector('#root > div.jss1.jss2 > div > p', { timeout: 10000 });
-      const loginSuccess = await page.$('#root > div.jss1.jss2 > div > p');
-      if (!loginSuccess) {
-        throw new Error('Login failed');
-      }
     } catch (error) {
       throw new Error('This account does not have multiple access clients.');
     }
